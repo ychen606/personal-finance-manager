@@ -73,3 +73,70 @@ class CalendarSpendingTests(TestCase):
         self.client.login(username='alice', password='pass12345')
         response = self.client.get(reverse('home'), {'year': 2026, 'month': 6})
         self.assertNotContains(response, 'Secret purchase')
+
+    def test_edit_spending(self):
+        spending = Spending.objects.create(
+            user=self.user,
+            date=date(2026, 6, 15),
+            description='Coffee',
+            amount=Decimal('5.00'),
+            currency='CAD',
+        )
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.post(reverse('edit_spending', args=[spending.pk]), {
+            'date': '2026-06-16',
+            'description': 'Lunch',
+            'amount': '12.00',
+            'currency': 'USD',
+        })
+        self.assertRedirects(response, '/?year=2026&month=6')
+        spending.refresh_from_db()
+        self.assertEqual(spending.description, 'Lunch')
+        self.assertEqual(spending.amount, Decimal('12.00'))
+        self.assertEqual(spending.currency, 'USD')
+        self.assertEqual(spending.date, date(2026, 6, 16))
+
+    def test_delete_spending(self):
+        spending = Spending.objects.create(
+            user=self.user,
+            date=date(2026, 6, 15),
+            description='Coffee',
+            amount=Decimal('5.00'),
+            currency='CAD',
+        )
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.post(reverse('delete_spending', args=[spending.pk]))
+        self.assertRedirects(response, '/?year=2026&month=6')
+        self.assertFalse(Spending.objects.filter(pk=spending.pk).exists())
+
+    def test_cannot_edit_other_users_spending(self):
+        spending = Spending.objects.create(
+            user=self.other,
+            date=date(2026, 6, 15),
+            description='Secret',
+            amount=Decimal('5.00'),
+            currency='USD',
+        )
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.post(reverse('edit_spending', args=[spending.pk]), {
+            'date': '2026-06-15',
+            'description': 'Hacked',
+            'amount': '1.00',
+            'currency': 'USD',
+        })
+        self.assertEqual(response.status_code, 404)
+        spending.refresh_from_db()
+        self.assertEqual(spending.description, 'Secret')
+
+    def test_cannot_delete_other_users_spending(self):
+        spending = Spending.objects.create(
+            user=self.other,
+            date=date(2026, 6, 15),
+            description='Secret',
+            amount=Decimal('5.00'),
+            currency='USD',
+        )
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.post(reverse('delete_spending', args=[spending.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Spending.objects.filter(pk=spending.pk).exists())

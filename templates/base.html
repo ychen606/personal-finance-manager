@@ -113,21 +113,22 @@
         .calendar-day.other-month {
             background: #fafafa;
         }
-        .day-button {
-            width: 100%;
+        .day-cell {
+            display: flex;
+            flex-direction: column;
             height: 100%;
             min-height: 110px;
+        }
+        .day-add-btn {
+            width: 100%;
             padding: 0.35rem;
             border: none;
             background: transparent;
             color: inherit;
             text-align: left;
             cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
         }
-        .day-button:hover { background: #f0f4f8; }
+        .day-add-btn:hover { background: #f0f4f8; }
         .day-placeholder {
             padding: 0.35rem;
             height: 100%;
@@ -145,15 +146,21 @@
             overflow: hidden;
         }
         .spending-item {
+            width: 100%;
             font-size: 0.65rem;
             line-height: 1.3;
             padding: 0.15rem 0.25rem;
             margin-bottom: 0.15rem;
             background: #eef2f7;
+            border: none;
             border-left: 2px solid #1e3a5f;
             border-radius: 2px;
             overflow: hidden;
+            text-align: left;
+            cursor: pointer;
+            color: inherit;
         }
+        .spending-item:hover { background: #dde7f0; }
         .spending-desc {
             display: block;
             white-space: nowrap;
@@ -165,10 +172,30 @@
             font-weight: 600;
             color: #1e3a5f;
         }
-        .spending-more {
+        .spending-more-btn {
+            width: 100%;
             font-size: 0.65rem;
-            color: #666;
+            color: #1e3a5f;
             font-style: italic;
+            background: none;
+            border: none;
+            padding: 0.15rem 0.25rem;
+            cursor: pointer;
+            text-align: left;
+        }
+        .spending-more-btn:hover {
+            text-decoration: underline;
+        }
+        .day-spendings-list {
+            list-style: none;
+            max-height: 320px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+        .day-spendings-list .spending-item {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
         }
         .modal {
             position: fixed;
@@ -202,8 +229,22 @@
         .modal-actions {
             display: flex;
             gap: 0.75rem;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 1.5rem;
+        }
+        .modal-actions-right {
+            display: flex;
+            gap: 0.75rem;
+        }
+        .btn-danger { background: #b00020; }
+        .btn-danger:hover { background: #8b0019; }
+        input[type="date"] {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
         }
         .errorlist {
             color: #b00020;
@@ -219,6 +260,10 @@
             padding: 0.75rem 1rem;
             border-radius: 4px;
             margin-bottom: 0.5rem;
+            transition: opacity 0.3s ease;
+        }
+        .messages li.fade-out {
+            opacity: 0;
         }
         .messages .success { background: #e8f5e9; color: #2e7d32; }
         .messages .error { background: #ffebee; color: #c62828; }
@@ -257,5 +302,21 @@
         {% block content %}{% endblock %}
     </div>
     {% block extra_js %}{% endblock %}
+    <script>
+    (function () {
+        document.querySelectorAll('.messages li.auto-dismiss').forEach(function (el) {
+            setTimeout(function () {
+                el.classList.add('fade-out');
+                setTimeout(function () {
+                    el.remove();
+                    const list = el.closest('.messages');
+                    if (list && list.children.length === 0) {
+                        list.remove();
+                    }
+                }, 300);
+            }, 5000);
+        });
+    })();
+    </script>
 </body>
 </html>

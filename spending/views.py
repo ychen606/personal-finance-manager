@@ -4,7 +4,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -78,7 +78,6 @@ def home(request):
         'prev_month_url': _month_url(prev_year, prev_month),
         'next_month_url': _month_url(next_year, next_month),
         'today_url': reverse('home'),
-        'form': SpendingForm(),
     }
     return render(request, 'home.html', context)
 
@@ -91,7 +90,7 @@ def add_spending(request):
         spending = form.save(commit=False)
         spending.user = request.user
         spending.save()
-        messages.success(request, 'Spending added.')
+        messages.success(request, 'Spending added.', extra_tags='auto-dismiss')
         return redirect(_month_url(spending.date.year, spending.date.month))
 
     messages.error(request, 'Could not add spending. Please check your input.')
@@ -102,4 +101,34 @@ def add_spending(request):
             year, month = spending_date.year, spending_date.month
         except ValueError:
             pass
+    return redirect(_month_url(year, month))
+
+
+def _get_user_spending(request, pk):
+    return get_object_or_404(Spending, pk=pk, user=request.user)
+
+
+@login_required
+@require_POST
+def edit_spending(request, pk):
+    spending = _get_user_spending(request, pk)
+    form = SpendingForm(request.POST, instance=spending)
+    if form.is_valid():
+        spending = form.save(commit=False)
+        spending.user = request.user
+        spending.save()
+        messages.success(request, 'Spending updated.', extra_tags='auto-dismiss')
+        return redirect(_month_url(spending.date.year, spending.date.month))
+
+    messages.error(request, 'Could not update spending. Please check your input.')
+    return redirect(_month_url(spending.date.year, spending.date.month))
+
+
+@login_required
+@require_POST
+def delete_spending(request, pk):
+    spending = _get_user_spending(request, pk)
+    year, month = spending.date.year, spending.date.month
+    spending.delete()
+    messages.error(request, 'Spending deleted.', extra_tags='auto-dismiss')
     return redirect(_month_url(year, month))
