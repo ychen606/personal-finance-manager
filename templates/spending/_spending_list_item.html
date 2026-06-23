@@ -1,7 +1,7 @@
 <li>
     <button
         type="button"
-        class="spending-item spending-edit-btn"
+        class="spending-list-row spending-edit-btn"
         data-edit-url="{% url 'edit_spending' spending.pk %}"
         data-delete-url="{% url 'delete_spending' spending.pk %}"
         data-date="{{ spending.date|date:'Y-m-d' }}"
@@ -10,7 +10,11 @@
         data-currency="{{ spending.currency }}"
         data-tag="{{ spending.tag }}"
     >
-        <span class="spending-desc">{{ spending.description }}</span>
-        <span class="spending-amount">{{ spending.formatted_amount }}</span>
+        <span class="spending-list-date">{{ spending.date|date:"M j, Y" }}</span>
+        <span class="spending-list-desc">{{ spending.description }}</span>
+        {% if spending.tag %}
+        <span class="spending-list-tag">{{ spending.tag }}</span>
+        {% endif %}
+        <span class="spending-list-amount">{{ spending.formatted_amount }}</span>
     </button>
 </li>

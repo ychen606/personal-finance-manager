@@ -47,6 +47,148 @@
             margin: 2rem auto;
             padding: 0 1rem;
         }
+        .container-dashboard {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .home-dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr 280px;
+            gap: 2.5rem;
+            align-items: start;
+        }
+        .panel-title {
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+        }
+        .panel-list,
+        .panel-totals {
+            padding: 1.25rem;
+        }
+        .date-filter-form {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .date-filter-form .form-group {
+            margin-bottom: 0.75rem;
+        }
+        .filter-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+        .tag-filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+        }
+        .tag-filter-chips:empty {
+            display: none;
+        }
+        .tag-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.55rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #1e3a5f;
+            background: #eef2f7;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        .tag-chip:hover {
+            background: #e2e8f0;
+        }
+        .tag-filter-empty {
+            font-size: 0.8125rem;
+            color: #666;
+            margin: 0;
+        }
+        .tag-combobox .tag-picker {
+            margin-top: 0.35rem;
+            font-size: 0.875rem;
+            color: #4b5563;
+        }
+        .spending-list-tag {
+            display: block;
+            font-size: 0.6875rem;
+            color: #6b7280;
+            margin-bottom: 0.15rem;
+        }
+        .sidebar-spending-list {
+            list-style: none;
+            max-height: 520px;
+            overflow-y: auto;
+        }
+        .spending-list-row {
+            width: 100%;
+            display: block;
+            text-align: left;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-left: 3px solid #1e3a5f;
+            border-radius: 4px;
+            padding: 0.5rem 0.65rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            color: inherit;
+            font-size: 0.8125rem;
+        }
+        .spending-list-row:hover {
+            background: #eef2f7;
+        }
+        .spending-list-date {
+            display: block;
+            font-size: 0.6875rem;
+            color: #666;
+            margin-bottom: 0.15rem;
+        }
+        .spending-list-desc {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.15rem;
+        }
+        .spending-list-amount {
+            display: block;
+            font-weight: 600;
+            color: #1e3a5f;
+        }
+        .sidebar-empty,
+        .totals-empty {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        .totals-list {
+            list-style: none;
+        }
+        .totals-item {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e3a5f;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .totals-item:last-child {
+            border-bottom: none;
+        }
+        @media (max-width: 960px) {
+            .home-dashboard {
+                grid-template-columns: 1fr;
+            }
+            .sidebar-spending-list {
+                max-height: 240px;
+            }
+        }
         .card {
             background: #fff;
             border-radius: 8px;

@@ -1,9 +1,11 @@
 import calendar
 from collections import defaultdict
 from datetime import date
+from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -26,8 +28,95 @@ def _parse_year_month(request):
     return year, month
 
 
-def _month_url(year, month):
-    return f'{reverse("home")}?year={year}&month={month}'
+def _month_bounds(year, month):
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last_day)
+
+
+def _parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_date_range(request, year, month):
+    default_start, default_end = _month_bounds(year, month)
+    start = _parse_iso_date(request.GET.get('start_date'))
+    end = _parse_iso_date(request.GET.get('end_date'))
+
+    if start is None and end is None:
+        return default_start, default_end
+
+    if start is None:
+        start = default_start
+    if end is None:
+        end = default_end
+    if start > end:
+        start, end = end, start
+
+    return start, end
+
+
+def _home_url(year, month, start_date, end_date, tags=None):
+    url = (
+        f'{reverse("home")}?year={year}&month={month}'
+        f'&start_date={start_date.isoformat()}&end_date={end_date.isoformat()}'
+    )
+    for tag in tags or []:
+        url += f'&tag={quote(tag)}'
+    return url
+
+
+def _user_tags(user):
+    return (
+        Spending.objects.filter(user=user)
+        .exclude(tag='')
+        .values_list('tag', flat=True)
+        .distinct()
+        .order_by('tag')
+    )
+
+
+def _parse_selected_tags(request):
+    return [t.strip() for t in request.GET.getlist('tag') if t.strip()]
+
+
+def _redirect_home(request, year, month):
+    start_date, end_date = _parse_date_range(request, year, month)
+    selected_tags = _parse_selected_tags(request)
+    return redirect(_home_url(year, month, start_date, end_date, selected_tags))
+
+
+def _redirect_home_after_post(request, year, month):
+    filter_start = _parse_iso_date(request.POST.get('filter_start_date'))
+    filter_end = _parse_iso_date(request.POST.get('filter_end_date'))
+    filter_tags = [t.strip() for t in request.POST.getlist('filter_tag') if t.strip()]
+    if filter_start and filter_end:
+        if filter_start > filter_end:
+            filter_start, filter_end = filter_end, filter_start
+        return redirect(_home_url(year, month, filter_start, filter_end, filter_tags))
+    return _redirect_home(request, year, month)
+
+
+def _month_totals(user, year, month):
+    totals = (
+        Spending.objects.filter(user=user, date__year=year, date__month=month)
+        .values('currency')
+        .annotate(total=Sum('amount'))
+        .order_by('currency')
+    )
+    return [
+        {
+            'currency': row['currency'],
+            'total': row['total'],
+            'formatted_total': f"{row['currency']} {row['total']:.2f}",
+        }
+        for row in totals
+        if row['total'] and row['total'] > 0
+    ]
 
 
 def _build_calendar_weeks(year, month, spendings_by_day):
@@ -49,14 +138,25 @@ def _build_calendar_weeks(year, month, spendings_by_day):
 @login_required
 def home(request):
     year, month = _parse_year_month(request)
-    spendings = Spending.objects.filter(
+    start_date, end_date = _parse_date_range(request, year, month)
+    selected_tags = _parse_selected_tags(request)
+    user_tags = list(_user_tags(request.user))
+
+    calendar_spendings = Spending.objects.filter(
         user=request.user,
         date__year=year,
         date__month=month,
     )
     spendings_by_day = defaultdict(list)
-    for spending in spendings:
+    for spending in calendar_spendings:
         spendings_by_day[spending.date.day].append(spending)
+
+    list_spendings = Spending.objects.filter(
+        user=request.user,
+        date__range=[start_date, end_date],
+    ).order_by('-date', '-created_at')
+    if selected_tags:
+        list_spendings = list_spendings.filter(tag__in=selected_tags)
 
     weeks = _build_calendar_weeks(year, month, dict(spendings_by_day))
 
@@ -70,14 +170,22 @@ def home(request):
     else:
         next_year, next_month = year, month + 1
 
+    today = timezone.localdate()
+
     context = {
         'year': year,
         'month': month,
         'month_name': calendar.month_name[month],
         'weeks': weeks,
-        'prev_month_url': _month_url(prev_year, prev_month),
-        'next_month_url': _month_url(next_year, next_month),
-        'today_url': reverse('home'),
+        'list_spendings': list_spendings,
+        'start_date': start_date,
+        'end_date': end_date,
+        'selected_tags': selected_tags,
+        'user_tags': user_tags,
+        'month_totals': _month_totals(request.user, year, month),
+        'prev_month_url': _home_url(prev_year, prev_month, start_date, end_date, selected_tags),
+        'next_month_url': _home_url(next_year, next_month, start_date, end_date, selected_tags),
+        'today_url': _home_url(today.year, today.month, start_date, end_date, selected_tags),
     }
     return render(request, 'home.html', context)
 
@@ -91,17 +199,15 @@ def add_spending(request):
         spending.user = request.user
         spending.save()
         messages.success(request, 'Spending added.', extra_tags='auto-dismiss')
-        return redirect(_month_url(spending.date.year, spending.date.month))
+        return _redirect_home_after_post(request, spending.date.year, spending.date.month)
 
     messages.error(request, 'Could not add spending. Please check your input.')
     year, month = _parse_year_month(request)
     if form.data.get('date'):
-        try:
-            spending_date = date.fromisoformat(form.data['date'])
+        spending_date = _parse_iso_date(form.data['date'])
+        if spending_date:
             year, month = spending_date.year, spending_date.month
-        except ValueError:
-            pass
-    return redirect(_month_url(year, month))
+    return _redirect_home_after_post(request, year, month)
 
 
 def _get_user_spending(request, pk):
@@ -118,10 +224,10 @@ def edit_spending(request, pk):
         spending.user = request.user
         spending.save()
         messages.success(request, 'Spending updated.', extra_tags='auto-dismiss')
-        return redirect(_month_url(spending.date.year, spending.date.month))
+        return _redirect_home_after_post(request, spending.date.year, spending.date.month)
 
     messages.error(request, 'Could not update spending. Please check your input.')
-    return redirect(_month_url(spending.date.year, spending.date.month))
+    return _redirect_home_after_post(request, spending.date.year, spending.date.month)
 
 
 @login_required
@@ -131,4 +237,4 @@ def delete_spending(request, pk):
     year, month = spending.date.year, spending.date.month
     spending.delete()
     messages.error(request, 'Spending deleted.', extra_tags='auto-dismiss')
-    return redirect(_month_url(year, month))
+    return _redirect_home_after_post(request, year, month)

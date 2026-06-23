@@ -18,8 +18,9 @@ class Spending(models.Model):
     currency = models.CharField(
         max_length=3,
         choices=Currency.choices,
-        default=Currency.USD,
+        default=Currency.CAD,
     )
+    tag = models.CharField(max_length=50, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,0 +1,5 @@
+<input type="hidden" name="filter_start_date" value="{{ start_date|date:'Y-m-d' }}">
+<input type="hidden" name="filter_end_date" value="{{ end_date|date:'Y-m-d' }}">
+{% for tag in selected_tags %}
+<input type="hidden" name="filter_tag" value="{{ tag }}">
+{% endfor %}

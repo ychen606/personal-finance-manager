@@ -2,83 +2,152 @@
 
 {% block title %}Home — Personal Finance Manager{% endblock %}
 
-{% block container_class %}container-wide{% endblock %}
+{% block container_class %}container-dashboard{% endblock %}
 
 {% block content %}
-<div class="card calendar-card">
-    <div class="calendar-header">
-        <div class="calendar-nav">
-            <a href="{{ prev_month_url }}" class="btn btn-sm">&larr; Prev</a>
-            <a href="{{ today_url }}" class="btn btn-sm btn-secondary">Today</a>
-            <a href="{{ next_month_url }}" class="btn btn-sm">Next &rarr;</a>
-        </div>
-        <h1>{{ month_name }} {{ year }}</h1>
-    </div>
+<div class="home-dashboard">
+    <aside class="panel panel-list card">
+        <h2 class="panel-title">Spendings</h2>
+        <form method="get" class="date-filter-form">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="month" value="{{ month }}">
+            <div class="form-group">
+                <label for="start_date">Start date</label>
+                <input type="date" name="start_date" id="start_date" value="{{ start_date|date:'Y-m-d' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="end_date">End date</label>
+                <input type="date" name="end_date" id="end_date" value="{{ end_date|date:'Y-m-d' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="tag-filter-select">Tags</label>
+                {% if user_tags %}
+                <select id="tag-filter-select">
+                    <option value="">Add tag…</option>
+                    {% for tag in user_tags %}
+                    {% if tag not in selected_tags %}
+                    <option value="{{ tag }}">{{ tag }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="tag-filter-empty">No tags yet.</p>
+                {% endif %}
+                <div id="tag-filter-chips" class="tag-filter-chips">
+                    {% for tag in selected_tags %}
+                    <button type="button" class="tag-chip" data-tag="{{ tag }}">{{ tag }} &times;</button>
+                    {% endfor %}
+                </div>
+                <div id="tag-filter-hidden">
+                    {% for tag in selected_tags %}
+                    <input type="hidden" name="tag" value="{{ tag }}">
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-sm">Apply</button>
+                <a href="{% url 'home' %}?year={{ year }}&month={{ month }}" class="btn btn-sm btn-secondary">Reset</a>
+            </div>
+        </form>
+        <ul class="sidebar-spending-list">
+            {% for spending in list_spendings %}
+            {% include "spending/_spending_list_item.html" %}
+            {% empty %}
+            <li class="sidebar-empty">No spendings in this date range.</li>
+            {% endfor %}
+        </ul>
+    </aside>
 
-    <table class="calendar">
-        <thead>
-            <tr>
-                <th>Sun</th>
-                <th>Mon</th>
-                <th>Tue</th>
-                <th>Wed</th>
-                <th>Thu</th>
-                <th>Fri</th>
-                <th>Sat</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for week in weeks %}
-            <tr>
-                {% for day in week %}
-                <td class="calendar-day{% if not day.in_month %} other-month{% endif %}">
-                    {% if day.in_month %}
-                    <div class="day-cell">
-                        <button
-                            type="button"
-                            class="day-add-btn"
-                            data-date="{{ day.date|date:'Y-m-d' }}"
-                            data-display-date="{{ day.date|date:'F j, Y' }}"
-                            title="Add spending"
-                        >
-                            <span class="day-number">{{ day.day }}</span>
-                        </button>
-                        <ul class="spending-list">
-                            {% for spending in day.spendings|slice:":3" %}
-                            {% include "spending/_spending_item.html" %}
-                            {% endfor %}
-                            {% if day.spendings|length > 3 %}
-                            <li>
+    <main class="panel panel-calendar">
+        <div class="card calendar-card">
+            <div class="calendar-header">
+                <div class="calendar-nav">
+                    <a href="{{ prev_month_url }}" class="btn btn-sm">&larr; Prev</a>
+                    <a href="{{ today_url }}" class="btn btn-sm btn-secondary">Today</a>
+                    <a href="{{ next_month_url }}" class="btn btn-sm">Next &rarr;</a>
+                </div>
+                <h1>{{ month_name }} {{ year }}</h1>
+            </div>
+
+            <table class="calendar">
+                <thead>
+                    <tr>
+                        <th>Sun</th>
+                        <th>Mon</th>
+                        <th>Tue</th>
+                        <th>Wed</th>
+                        <th>Thu</th>
+                        <th>Fri</th>
+                        <th>Sat</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for week in weeks %}
+                    <tr>
+                        {% for day in week %}
+                        <td class="calendar-day{% if not day.in_month %} other-month{% endif %}">
+                            {% if day.in_month %}
+                            <div class="day-cell">
                                 <button
                                     type="button"
-                                    class="spending-more-btn"
+                                    class="day-add-btn"
                                     data-date="{{ day.date|date:'Y-m-d' }}"
                                     data-display-date="{{ day.date|date:'F j, Y' }}"
+                                    title="Add spending"
                                 >
-                                    +{{ day.spendings|length|add:"-3" }} more
+                                    <span class="day-number">{{ day.day }}</span>
                                 </button>
-                            </li>
+                                <ul class="spending-list">
+                                    {% for spending in day.spendings|slice:":3" %}
+                                    {% include "spending/_spending_item.html" %}
+                                    {% endfor %}
+                                    {% if day.spendings|length > 3 %}
+                                    <li>
+                                        <button
+                                            type="button"
+                                            class="spending-more-btn"
+                                            data-date="{{ day.date|date:'Y-m-d' }}"
+                                            data-display-date="{{ day.date|date:'F j, Y' }}"
+                                        >
+                                            +{{ day.spendings|length|add:"-3" }} more
+                                        </button>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                            {% if day.spendings|length > 3 %}
+                            <template class="day-spendings-template">
+                                {% for spending in day.spendings %}
+                                {% include "spending/_spending_item.html" %}
+                                {% endfor %}
+                            </template>
                             {% endif %}
-                        </ul>
-                    </div>
-                    {% if day.spendings|length > 3 %}
-                    <template class="day-spendings-template">
-                        {% for spending in day.spendings %}
-                        {% include "spending/_spending_item.html" %}
+                            {% else %}
+                            <div class="day-placeholder">
+                                <span class="day-number">{{ day.day }}</span>
+                            </div>
+                            {% endif %}
+                        </td>
                         {% endfor %}
-                    </template>
-                    {% endif %}
-                    {% else %}
-                    <div class="day-placeholder">
-                        <span class="day-number">{{ day.day }}</span>
-                    </div>
-                    {% endif %}
-                </td>
-                {% endfor %}
-            </tr>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <aside class="panel panel-totals card">
+        <h2 class="panel-title">{{ month_name }} {{ year }} total</h2>
+        {% if month_totals %}
+        <ul class="totals-list">
+            {% for row in month_totals %}
+            <li class="totals-item">{{ row.formatted_total }}</li>
             {% endfor %}
-        </tbody>
-    </table>
+        </ul>
+        {% else %}
+        <p class="totals-empty">No spendings this month.</p>
+        {% endif %}
+    </aside>
 </div>
 
 <div id="add-spending-modal" class="modal" hidden>
@@ -88,6 +157,7 @@
         <p class="modal-date" id="add-modal-date-label"></p>
         <form method="post" action="{% url 'add_spending' %}">
             {% csrf_token %}
+            {% include "spending/_filter_hidden_fields.html" %}
             <input type="hidden" name="date" id="add-modal-date-input">
             <div class="form-group">
                 <label for="add-id_description">Description</label>
@@ -100,8 +170,18 @@
             <div class="form-group">
                 <label for="add-id_currency">Currency</label>
                 <select name="currency" id="add-id_currency" required>
-                    <option value="USD" selected>USD</option>
-                    <option value="CAD">CAD</option>
+                    <option value="USD">USD</option>
+                    <option value="CAD" selected>CAD</option>
+                </select>
+            </div>
+            <div class="form-group tag-combobox">
+                <label for="add-id_tag">Tag</label>
+                <input type="text" name="tag" id="add-id_tag" maxlength="50" placeholder="Type or select a tag">
+                <select id="add-tag-picker" class="tag-picker" aria-label="Select existing tag">
+                    <option value="">Select existing tag…</option>
+                    {% for tag in user_tags %}
+                    <option value="{{ tag }}">{{ tag }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="modal-actions">
@@ -118,6 +198,9 @@
         <h2>Edit spending</h2>
         <form id="edit-spending-form" method="post" action="">
             {% csrf_token %}
+            <div id="edit-filter-fields">
+                {% include "spending/_filter_hidden_fields.html" %}
+            </div>
             <div class="form-group">
                 <label for="edit-id_date">Date</label>
                 <input type="date" name="date" id="edit-id_date" required>
@@ -137,6 +220,16 @@
                     <option value="CAD">CAD</option>
                 </select>
             </div>
+            <div class="form-group tag-combobox">
+                <label for="edit-id_tag">Tag</label>
+                <input type="text" name="tag" id="edit-id_tag" maxlength="50" placeholder="Type or select a tag">
+                <select id="edit-tag-picker" class="tag-picker" aria-label="Select existing tag">
+                    <option value="">Select existing tag…</option>
+                    {% for tag in user_tags %}
+                    <option value="{{ tag }}">{{ tag }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-danger" id="delete-spending-btn">Delete</button>
                 <div class="modal-actions-right">
@@ -147,6 +240,9 @@
         </form>
         <form id="delete-spending-form" method="post" action="" hidden>
             {% csrf_token %}
+            <div id="delete-filter-fields">
+                {% include "spending/_filter_hidden_fields.html" %}
+            </div>
         </form>
     </div>
 </div>
@@ -162,6 +258,7 @@
         </div>
     </div>
 </div>
+{{ user_tags|json_script:"user-tags-data" }}
 {% endblock %}
 
 {% block extra_js %}
@@ -178,9 +275,129 @@
     const daySpendingsList = document.getElementById('day-spendings-list');
     const daySpendingsTitle = document.getElementById('day-spendings-title');
     const daySpendingsAddBtn = document.getElementById('day-spendings-add-btn');
+    const sidebarList = document.querySelector('.sidebar-spending-list');
 
     let dayModalDate = '';
     let dayModalDisplayDate = '';
+
+    function wireTagPicker(pickerId, inputId) {
+        const picker = document.getElementById(pickerId);
+        const input = document.getElementById(inputId);
+        if (!picker || !input) {
+            return;
+        }
+        picker.addEventListener('change', function () {
+            if (picker.value) {
+                input.value = picker.value;
+            }
+            picker.value = '';
+        });
+    }
+
+    wireTagPicker('add-tag-picker', 'add-id_tag');
+    wireTagPicker('edit-tag-picker', 'edit-id_tag');
+
+    const tagFilterSelect = document.getElementById('tag-filter-select');
+    const tagFilterChips = document.getElementById('tag-filter-chips');
+    const tagFilterHidden = document.getElementById('tag-filter-hidden');
+    const userTagsEl = document.getElementById('user-tags-data');
+    const allUserTags = userTagsEl ? JSON.parse(userTagsEl.textContent) : [];
+    const selectedFilterTags = new Set(
+        tagFilterHidden
+            ? Array.from(tagFilterHidden.querySelectorAll('input[name="tag"]')).map(function (el) {
+                return el.value;
+            })
+            : []
+    );
+
+    function removeTagFilterOption(tag) {
+        if (!tagFilterSelect) {
+            return;
+        }
+        const option = tagFilterSelect.querySelector('option[value="' + CSS.escape(tag) + '"]');
+        if (option) {
+            option.remove();
+        }
+    }
+
+    function addTagFilterOption(tag) {
+        if (!tagFilterSelect) {
+            return;
+        }
+        const option = document.createElement('option');
+        option.value = tag;
+        option.textContent = tag;
+        const options = Array.from(tagFilterSelect.querySelectorAll('option:not([value=""])'));
+        options.push(option);
+        options.sort(function (a, b) {
+            return a.value.localeCompare(b.value);
+        });
+        options.forEach(function (opt) {
+            tagFilterSelect.appendChild(opt);
+        });
+    }
+
+    function addTagFilterChip(tag) {
+        if (!tagFilterChips || !tagFilterHidden || selectedFilterTags.has(tag)) {
+            return;
+        }
+        selectedFilterTags.add(tag);
+
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.tag = tag;
+        chip.textContent = tag + ' \u00d7';
+        tagFilterChips.appendChild(chip);
+
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'tag';
+        hidden.value = tag;
+        tagFilterHidden.appendChild(hidden);
+
+        removeTagFilterOption(tag);
+    }
+
+    function removeTagFilterChip(tag) {
+        if (!tagFilterChips || !tagFilterHidden || !selectedFilterTags.has(tag)) {
+            return;
+        }
+        selectedFilterTags.delete(tag);
+
+        const chip = tagFilterChips.querySelector('.tag-chip[data-tag="' + CSS.escape(tag) + '"]');
+        if (chip) {
+            chip.remove();
+        }
+
+        const hidden = tagFilterHidden.querySelector('input[name="tag"][value="' + CSS.escape(tag) + '"]');
+        if (hidden) {
+            hidden.remove();
+        }
+
+        if (allUserTags.indexOf(tag) !== -1) {
+            addTagFilterOption(tag);
+        }
+    }
+
+    if (tagFilterSelect) {
+        tagFilterSelect.addEventListener('change', function () {
+            const tag = tagFilterSelect.value;
+            if (tag) {
+                addTagFilterChip(tag);
+            }
+            tagFilterSelect.value = '';
+        });
+    }
+
+    if (tagFilterChips) {
+        tagFilterChips.addEventListener('click', function (e) {
+            const chip = e.target.closest('.tag-chip');
+            if (chip && chip.dataset.tag) {
+                removeTagFilterChip(chip.dataset.tag);
+            }
+        });
+    }
 
     function openAddModal(date, displayDate) {
         closeAllModals();
@@ -198,6 +415,11 @@
         document.getElementById('edit-id_description').value = btn.dataset.description;
         document.getElementById('edit-id_amount').value = btn.dataset.amount;
         document.getElementById('edit-id_currency').value = btn.dataset.currency;
+        document.getElementById('edit-id_tag').value = btn.dataset.tag || '';
+        const editTagPicker = document.getElementById('edit-tag-picker');
+        if (editTagPicker) {
+            editTagPicker.value = '';
+        }
         editModal.hidden = false;
         document.getElementById('edit-id_description').focus();
     }
@@ -239,6 +461,15 @@
             openEditModal(btn);
         });
     });
+
+    if (sidebarList) {
+        sidebarList.addEventListener('click', function (e) {
+            const btn = e.target.closest('.spending-edit-btn');
+            if (btn) {
+                openEditModal(btn);
+            }
+        });
+    }
 
     document.querySelectorAll('.spending-more-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
