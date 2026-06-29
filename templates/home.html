@@ -144,6 +144,14 @@
             <li class="totals-item">{{ row.formatted_total }}</li>
             {% endfor %}
         </ul>
+        <button type="button" class="btn btn-sm btn-ai-summary" id="ai-summary-btn">
+            Generate AI Summary
+        </button>
+        <div id="ai-summary-panel" class="ai-summary-panel" hidden>
+            <div id="ai-summary-loading" class="ai-summary-loading" hidden>Generating summary…</div>
+            <div id="ai-summary-error" class="ai-summary-error" hidden></div>
+            <div id="ai-summary-body" class="ai-summary-body" hidden></div>
+        </div>
         {% else %}
         <p class="totals-empty">No spendings this month.</p>
         {% endif %}
@@ -262,11 +270,18 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 <script>
 (function () {
     const addModal = document.getElementById('add-spending-modal');
     const editModal = document.getElementById('edit-spending-modal');
     const dayModal = document.getElementById('day-spendings-modal');
+    const aiSummaryPanel = document.getElementById('ai-summary-panel');
+    const aiSummaryBtn = document.getElementById('ai-summary-btn');
+    const aiSummaryLoading = document.getElementById('ai-summary-loading');
+    const aiSummaryError = document.getElementById('ai-summary-error');
+    const aiSummaryBody = document.getElementById('ai-summary-body');
     const addDateInput = document.getElementById('add-modal-date-input');
     const addDateLabel = document.getElementById('add-modal-date-label');
     const editForm = document.getElementById('edit-spending-form');
@@ -448,6 +463,89 @@
 
     function isAnyModalOpen() {
         return !addModal.hidden || !editModal.hidden || !dayModal.hidden;
+    }
+
+    function getCsrfToken() {
+        const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function renderMarkdown(text) {
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            return DOMPurify.sanitize(marked.parse(text));
+        }
+        return null;
+    }
+
+    function resetAiSummaryPanel() {
+        if (!aiSummaryPanel || !aiSummaryLoading || !aiSummaryError || !aiSummaryBody) {
+            return;
+        }
+        aiSummaryLoading.hidden = true;
+        aiSummaryError.hidden = true;
+        aiSummaryError.textContent = '';
+        aiSummaryBody.hidden = true;
+        aiSummaryBody.innerHTML = '';
+    }
+
+    function showAiSummaryLoading() {
+        resetAiSummaryPanel();
+        aiSummaryPanel.hidden = false;
+        aiSummaryLoading.hidden = false;
+    }
+
+    function showAiSummaryError(message) {
+        aiSummaryLoading.hidden = true;
+        aiSummaryError.hidden = false;
+        aiSummaryError.textContent = message;
+    }
+
+    function showAiSummaryResult(summary) {
+        aiSummaryLoading.hidden = true;
+        aiSummaryBody.hidden = false;
+        const html = renderMarkdown(summary);
+        if (html !== null) {
+            aiSummaryBody.innerHTML = html;
+        } else {
+            aiSummaryBody.textContent = summary;
+        }
+    }
+
+    if (aiSummaryBtn) {
+        aiSummaryBtn.addEventListener('click', function () {
+            showAiSummaryLoading();
+            aiSummaryBtn.disabled = true;
+
+            fetch('{% url "ai_summary" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                },
+                body: JSON.stringify({
+                    year: {{ year }},
+                    month: {{ month }},
+                }),
+            })
+                .then(function (response) {
+                    return response.json().then(function (data) {
+                        return { ok: response.ok, data: data };
+                    });
+                })
+                .then(function (result) {
+                    if (result.ok) {
+                        showAiSummaryResult(result.data.summary);
+                    } else {
+                        showAiSummaryError(result.data.error || 'Could not generate summary.');
+                    }
+                })
+                .catch(function () {
+                    showAiSummaryError('Could not generate summary. Please try again.');
+                })
+                .finally(function () {
+                    aiSummaryBtn.disabled = false;
+                });
+        });
     }
 
     document.querySelectorAll('.day-add-btn').forEach(function (btn) {

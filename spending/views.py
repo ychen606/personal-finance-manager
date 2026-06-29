@@ -1,4 +1,5 @@
 import calendar
+import json
 from collections import defaultdict
 from datetime import date
 from urllib.parse import quote
@@ -6,11 +7,13 @@ from urllib.parse import quote
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from .ai import AIConfigurationError, AIRequestError, generate_monthly_summary
 from .forms import SpendingForm
 from .models import Spending
 
@@ -238,3 +241,48 @@ def delete_spending(request, pk):
     spending.delete()
     messages.error(request, 'Spending deleted.', extra_tags='auto-dismiss')
     return _redirect_home_after_post(request, year, month)
+
+
+def _parse_ai_summary_period(request):
+    today = timezone.localdate()
+    try:
+        if request.content_type == 'application/json':
+            body = json.loads(request.body.decode('utf-8') or '{}')
+        else:
+            body = {}
+        year = int(body.get('year', today.year))
+        month = int(body.get('month', today.month))
+        if not (1 <= month <= 12):
+            raise ValueError
+        date(year, month, 1)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        year, month = today.year, today.month
+    return year, month
+
+
+@login_required
+@require_POST
+def ai_summary(request):
+    year, month = _parse_ai_summary_period(request)
+
+    has_spendings = Spending.objects.filter(
+        user=request.user,
+        date__year=year,
+        date__month=month,
+    ).exists()
+    if not has_spendings:
+        return JsonResponse(
+            {'error': 'No spendings for this month.'},
+            status=400,
+        )
+
+    try:
+        summary = generate_monthly_summary(request.user, year, month)
+    except AIConfigurationError as exc:
+        return JsonResponse({'error': str(exc)}, status=503)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except AIRequestError as exc:
+        return JsonResponse({'error': str(exc)}, status=502)
+
+    return JsonResponse({'summary': summary})

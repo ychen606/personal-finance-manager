@@ -1,10 +1,12 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from spending.ai import build_spending_context
 from spending.models import Spending
 
 
@@ -491,3 +493,73 @@ class CalendarSpendingTests(TestCase):
                 tags=['food', 'transport'],
             ),
         )
+
+
+class AISummaryTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='alice', password='pass12345')
+        self.other = User.objects.create_user(username='bob', password='pass12345')
+        self.client = Client()
+
+    def test_ai_summary_requires_login(self):
+        response = self.client.post(
+            reverse('ai_summary'),
+            data='{"year": 2026, "month": 6}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response.url)
+
+    def test_ai_summary_requires_post(self):
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.get(reverse('ai_summary'))
+        self.assertEqual(response.status_code, 405)
+
+    def test_ai_summary_no_spendings(self):
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.post(
+            reverse('ai_summary'),
+            data='{"year": 2026, "month": 6}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()['error'],
+            'No spendings for this month.',
+        )
+
+    @override_settings(OPENAI_API_KEY='test-key')
+    @patch('spending.views.generate_monthly_summary')
+    def test_ai_summary_success(self, mock_generate):
+        mock_generate.return_value = 'You spent mostly on food this month.'
+        Spending.objects.create(
+            user=self.user,
+            date=date(2026, 6, 15),
+            description='Groceries',
+            amount=Decimal('42.50'),
+            currency='USD',
+            tag='food',
+        )
+        Spending.objects.create(
+            user=self.other,
+            date=date(2026, 6, 16),
+            description='Secret',
+            amount=Decimal('99.00'),
+            currency='USD',
+        )
+        self.client.login(username='alice', password='pass12345')
+        response = self.client.post(
+            reverse('ai_summary'),
+            data='{"year": 2026, "month": 6}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()['summary'],
+            'You spent mostly on food this month.',
+        )
+        mock_generate.assert_called_once_with(self.user, 2026, 6)
+
+        context = build_spending_context(self.user, 2026, 6)
+        self.assertIn('Groceries', context)
+        self.assertNotIn('Secret', context)

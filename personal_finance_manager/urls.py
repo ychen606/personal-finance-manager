@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('spending/add/', spending_views.add_spending, name='add_spending'),
+    path('spending/ai-summary/', spending_views.ai_summary, name='ai_summary'),
     path('spending/<int:pk>/edit/', spending_views.edit_spending, name='edit_spending'),
     path('spending/<int:pk>/delete/', spending_views.delete_spending, name='delete_spending'),
     path('', spending_views.home, name='home'),
